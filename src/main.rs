@@ -66,7 +66,7 @@ impl Matrix {
     }
 
     // element wise operations
-    pub fn e_add(&mut self, m: &Matrix) { // passing as reference (might need to take out later)
+    pub fn e_add(&mut self, m: &Matrix) {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
             return
@@ -77,7 +77,7 @@ impl Matrix {
             }
         }
     }
-    pub fn e_sub(&mut self, m: Matrix) {
+    pub fn e_sub(&mut self, m: &Matrix) {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
             return;
@@ -88,7 +88,7 @@ impl Matrix {
             }
         }
     }
-    pub fn e_mult(&mut self, m: Matrix) {
+    pub fn e_mult(&mut self, m: &Matrix) {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
             return;
@@ -99,7 +99,7 @@ impl Matrix {
             }
         }
     }
-    pub fn e_div(&mut self, m: Matrix) {
+    pub fn e_div(&mut self, m: &Matrix) {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
             return;
@@ -128,8 +128,8 @@ impl Matrix {
 
     pub fn dot_product(&mut self, m: Matrix) -> Matrix {
         let mut nm = Matrix {
-            rows: m.cols,
-            cols: self.rows,
+            rows: self.rows,
+            cols: m.cols,
             data: Vec::new()
         };
 
@@ -151,7 +151,7 @@ impl Matrix {
         return nm
     }
 
-    pub fn randomize(&mut self) { // might have error
+    pub fn randomize(&mut self) {
         let mut rng = rand::thread_rng();
         for _x in 0..self.rows {
             let mut vector: Vec<f32> = Vec::new();
@@ -162,7 +162,7 @@ impl Matrix {
         }
     }
 
-    pub fn map_to_sigmoid(&mut self) { // might be outta bounds
+    pub fn map_to_sigmoid(&mut self) {
         for x in 0..self.rows {
             for y in 0..self.cols {
                 self.data[x as usize][y as usize] = sigmoid(self.data[x as usize][y as usize]);
@@ -181,6 +181,7 @@ impl Matrix {
     }
 }
 
+#[allow(dead_code)]
 pub struct NeuralNet {
     i_nodes: i32,
     h_nodes: i32,
@@ -205,25 +206,18 @@ impl NeuralNet {
     }
 
     pub fn feed_foward(&mut self, input_data: Vec<f32>) -> Vec<f32> {
-        // i -> h layer
         let m_input_data = Matrix::from_vector_new(input_data);
+
+        // i -> h layer
         let mut m_hidden: Matrix = self.ih_weight.dot_product(m_input_data);
-
-        m_hidden.print();
-        self.h_bias.print();
-
-        println!("{}", &self.h_bias.rows);
-        println!("{}", &self.h_bias.cols);
-        println!("{}", m_hidden.rows);
-        println!("{}", m_hidden.cols);
-
-        m_hidden.e_add(&self.h_bias); // issue
-//         m_hidden.map_to_sigmoid();
+        m_hidden.e_add(&self.h_bias);
+        m_hidden.map_to_sigmoid();
 
         // h -> o layer
         let mut m_output = self.ho_weight.dot_product(m_hidden);
         m_output.e_add(&self.o_bias);
-//         m_output.map_to_sigmoid();
+        m_output.map_to_sigmoid();
+
         return m_output.to_vector()
     }
 }
@@ -234,8 +228,10 @@ fn sigmoid(x: f32) -> f32 {
 
 fn main() {
     let mut net = NeuralNet::new(2, 2, 1);
-    let input = vec![1.0, 0.0];
-    let output = net.feed_foward(input);
-    println!("{}", output[0]);
+    let output = net.feed_foward (
+        vec![1.0, 0.0]
+    );
+    let ff_result = Matrix::from_vector_new(output);
+    ff_result.print();
 }
 
