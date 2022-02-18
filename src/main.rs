@@ -66,67 +66,69 @@ impl Matrix {
     }
 
     // element wise operations
-    pub fn e_add(&mut self, m: &Matrix) {
+    pub fn e_add(&mut self, m: &Matrix) -> &mut Matrix { // returning a reference might be an error
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
-            return
         }
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] += m.data[x][y];
             }
         }
+        return self
     }
-    pub fn e_sub(&mut self, m: &Matrix) {
+    pub fn e_sub(&mut self, m: &Matrix) -> &mut Matrix {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
-            return;
         }
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] -= m.data[x][y];
             }
         }
+        return self
     }
-    pub fn e_mult(&mut self, m: &Matrix) {
+    pub fn e_mult(&mut self, m: &Matrix) -> &mut Matrix {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
-            return;
         }
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] *= m.data[x][y];
             }
         }
+        return self
     }
-    pub fn e_div(&mut self, m: &Matrix) {
+    pub fn e_div(&mut self, m: &Matrix) -> &mut Matrix {
         if m.cols != self.cols || m.rows != self.rows {
             println!("cannot perform element wise operation");
-            return;
         }
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] /= m.data[x][y];
             }
         }
+        return self
     }
 
-    pub fn transpose(&mut self) {
+    pub fn transpose(m: &Matrix) -> Matrix {
         let mut new_data = Vec::new();
-        for x in 0..self.cols {
+        for x in 0..m.cols {
             let mut v: Vec<f32> = Vec::new();
-            for y in 0..self.rows {
-                v.push(self.data[y as usize][x as usize]);
+            for y in 0..m.rows {
+                v.push(m.data[y as usize][x as usize]);
             }
             new_data.push(v);
         }
-        self.data = new_data;
-        let t_rows = self.rows;
-        self.rows = self.cols;
-        self.cols = t_rows;
+
+        return Matrix {
+            rows: m.cols,
+            cols: m.rows,
+            data: new_data
+        }
     }
 
-    pub fn dot_product(&mut self, m: Matrix) -> Matrix {
+    pub fn dot_product(&mut self, m: &Matrix) -> Matrix {
         let mut nm = Matrix {
             rows: self.rows,
             cols: m.cols,
@@ -162,11 +164,28 @@ impl Matrix {
         }
     }
 
-    pub fn map_to_sigmoid(&mut self) {
+    pub fn map_to_function(&mut self, func: &dyn Fn(f32) -> f32) {
         for x in 0..self.rows {
             for y in 0..self.cols {
-                self.data[x as usize][y as usize] = sigmoid(self.data[x as usize][y as usize]);
+                self.data[x as usize][y as usize] = func(self.data[x as usize][y as usize]);
             }
+        }
+    }
+
+    pub fn static_map_to_function(m: &Matrix, func: &dyn Fn(f32) -> f32) -> Matrix {
+        let mut new_data = Vec::new();
+        for x in 0..m.rows {
+            let mut v: Vec<f32> = Vec::new();
+            for y in 0..m.cols {
+                v.push(func(m.data[x as usize][y as usize]));
+            }
+            new_data.push(v);
+        }
+
+        return Matrix {
+            rows: m.rows,
+            cols: m.cols,
+            data: new_data
         }
     }
 
@@ -181,57 +200,106 @@ impl Matrix {
     }
 }
 
-#[allow(dead_code)]
 pub struct NeuralNet {
-    i_nodes: i32,
-    h_nodes: i32,
-    o_nodes: i32,
     ih_weight: Matrix,
     ho_weight: Matrix,
     h_bias: Matrix,
-    o_bias: Matrix
+    o_bias: Matrix,
+    learning_rate: f32
 }
 
 impl NeuralNet {
     pub fn new(i: i32, h: i32, o: i32) -> Self {
         NeuralNet {
-            i_nodes: i,
-            h_nodes: h,
-            o_nodes: o,
             ih_weight: Matrix::r_new(i, h),
             ho_weight: Matrix::r_new(o, h),
             h_bias: Matrix::r_new(h, 1),
-            o_bias: Matrix::r_new(o, 1)
+            o_bias: Matrix::r_new(o, 1),
+            learning_rate: 0.1
         }
     }
 
     pub fn feed_foward(&mut self, input_data: Vec<f32>) -> Vec<f32> {
         let m_input_data = Matrix::from_vector_new(input_data);
-
         // i -> h layer
-        let mut m_hidden: Matrix = self.ih_weight.dot_product(m_input_data);
+        let mut m_hidden: Matrix = self.ih_weight.dot_product(&m_input_data);
         m_hidden.e_add(&self.h_bias);
-        m_hidden.map_to_sigmoid();
+        m_hidden.map_to_function(&sigmoid);
+        // h -> o layer
+        let mut m_output: Matrix = self.ho_weight.dot_product(&m_hidden);
+        m_output.e_add(&self.o_bias);
+        m_output.map_to_function(&sigmoid);
+        return m_output.to_vector()
+    }
+
+    pub fn train(&mut self, input_data: Vec<f32>, v_target_data: Vec<f32>) {
+        // feeding foward (refactor)
+        // i -> h layer
+        let m_input_data = Matrix::from_vector_new(input_data);
+        let mut m_hidden: Matrix = self.ih_weight.dot_product(&m_input_data);
+        m_hidden.e_add(&self.h_bias);
+        m_hidden.map_to_function(&sigmoid);
 
         // h -> o layer
-        let mut m_output = self.ho_weight.dot_product(m_hidden);
-        m_output.e_add(&self.o_bias);
-        m_output.map_to_sigmoid();
+        let mut output_data: Matrix = self.ho_weight.dot_product(&m_hidden);
+        output_data.e_add(&self.o_bias);
+        output_data.map_to_function(&sigmoid);
 
-        return m_output.to_vector()
+        let mut m_target_data = Matrix::from_vector_new(v_target_data);
+        let err_output = m_target_data.e_sub(&output_data);
+
+        let mut o_gradient = Matrix::static_map_to_function(&output_data, &d_sigmoid);
+        o_gradient.e_mult(err_output);
+        o_gradient.s_mult(self.learning_rate);
+
+        let t_hidden = Matrix::transpose(&m_hidden);
+        let ho_dweights = o_gradient.dot_product(&t_hidden);
+
+        self.ho_weight.e_add(&ho_dweights);
+        self.o_bias.e_add(&o_gradient);
+
+        let mut ho_weight_t = Matrix::transpose(&self.ho_weight);
+        let err_hidden = ho_weight_t.dot_product(&err_output);
+
+        let mut h_gradient = Matrix::static_map_to_function(&m_hidden, &d_sigmoid);
+        h_gradient.e_mult(&err_hidden);
+        h_gradient.s_mult(self.learning_rate);
+
+        let t_input = Matrix::transpose(&m_input_data);
+        let ih_dweights = h_gradient.dot_product(&t_input);
+
+        self.ih_weight.e_add(&ih_dweights);
+        self.h_bias.e_add(&h_gradient);
     }
 }
 
-fn sigmoid(x: f32) -> f32 {
+pub fn sigmoid(x: f32) -> f32 {
     return 1.0 / (1.0 + f32::exp(-x));
 }
 
-fn main() {
-    let mut net = NeuralNet::new(2, 2, 1);
-    let output = net.feed_foward (
-        vec![1.0, 0.0]
-    );
-    let ff_result = Matrix::from_vector_new(output);
-    ff_result.print();
+pub fn d_sigmoid(x: f32) -> f32 {
+    return x * (1.0 - x);
 }
+
+fn main() {
+    let mut network = NeuralNet::new(2, 2, 1);
+    // xor data set
+    let data = vec![vec![1.0, 1.0], vec![1.0, 0.0], vec![0.0, 1.0], vec![0.0, 0.0]];
+    let targets = vec![vec![0.0], vec![1.0], vec![1.0], vec![0.0]];
+    for _i in 0..50000 {
+        let index = rand::thread_rng().gen_range(0..4);
+        network.train(data[index as usize].clone(), targets[index as usize].clone()); // fix to vector ! impl copy
+    }
+    Matrix::from_vector_new(network.feed_foward(vec![1.0, 0.0])).print();
+    Matrix::from_vector_new(network.feed_foward(vec![0.0, 1.0])).print();
+    Matrix::from_vector_new(network.feed_foward(vec![1.0, 1.0])).print();
+    Matrix::from_vector_new(network.feed_foward(vec![0.0, 0.0])).print();
+}
+
+
+
+
+
+
+
 
