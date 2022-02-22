@@ -9,14 +9,6 @@ pub struct Matrix {
 
 impl Matrix {
     // constructors
-    pub fn d_new(d: Vec<Vec<f32>>) -> Self { // new defined matrix
-        let mat = Matrix {
-            rows: d.len() as i32,
-            cols: d[0].len() as i32,
-            data: d
-        };
-        return mat
-    }
     pub fn r_new(r: i32, c: i32) -> Self { // new randomized matrix
         let mut mat = Matrix {
             rows: r,
@@ -50,14 +42,7 @@ impl Matrix {
     }
 
     // scalar operations
-    pub fn s_add(&mut self, n: f32) { // also sub
-        for x in 0..self.data.len() {
-            for y in 0..self.data[x].len() {
-                self.data[x][y] += n;
-            }
-        }
-    }
-    pub fn s_mult(&mut self, n: f32) { // also div
+    pub fn s_mult(&mut self, n: f32) {
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] *= n;
@@ -95,17 +80,6 @@ impl Matrix {
         for x in 0..self.data.len() {
             for y in 0..self.data[x].len() {
                 self.data[x][y] *= m.data[x][y];
-            }
-        }
-        return self
-    }
-    pub fn e_div(&mut self, m: &Matrix) -> &mut Matrix {
-        if m.cols != self.cols || m.rows != self.rows {
-            println!("cannot perform element wise operation");
-        }
-        for x in 0..self.data.len() {
-            for y in 0..self.data[x].len() {
-                self.data[x][y] /= m.data[x][y];
             }
         }
         return self
@@ -211,11 +185,11 @@ pub struct NeuralNet {
 impl NeuralNet {
     pub fn new(i: i32, h: i32, o: i32) -> Self {
         NeuralNet {
-            ih_weight: Matrix::r_new(i, h),
+            ih_weight: Matrix::r_new(h, i),
             ho_weight: Matrix::r_new(o, h),
             h_bias: Matrix::r_new(h, 1),
             o_bias: Matrix::r_new(o, 1),
-            learning_rate: 0.1
+            learning_rate: 0.5
         }
     }
 
@@ -239,35 +213,26 @@ impl NeuralNet {
         let mut m_hidden: Matrix = self.ih_weight.dot_product(&m_input_data);
         m_hidden.e_add(&self.h_bias);
         m_hidden.map_to_function(&sigmoid);
-
         // h -> o layer
         let mut output_data: Matrix = self.ho_weight.dot_product(&m_hidden);
         output_data.e_add(&self.o_bias);
         output_data.map_to_function(&sigmoid);
-
         let mut m_target_data = Matrix::from_vector_new(v_target_data);
         let err_output = m_target_data.e_sub(&output_data);
-
         let mut o_gradient = Matrix::static_map_to_function(&output_data, &d_sigmoid);
         o_gradient.e_mult(err_output);
         o_gradient.s_mult(self.learning_rate);
-
         let t_hidden = Matrix::transpose(&m_hidden);
         let ho_dweights = o_gradient.dot_product(&t_hidden);
-
         self.ho_weight.e_add(&ho_dweights);
         self.o_bias.e_add(&o_gradient);
-
         let mut ho_weight_t = Matrix::transpose(&self.ho_weight);
         let err_hidden = ho_weight_t.dot_product(&err_output);
-
         let mut h_gradient = Matrix::static_map_to_function(&m_hidden, &d_sigmoid);
         h_gradient.e_mult(&err_hidden);
         h_gradient.s_mult(self.learning_rate);
-
         let t_input = Matrix::transpose(&m_input_data);
         let ih_dweights = h_gradient.dot_product(&t_input);
-
         self.ih_weight.e_add(&ih_dweights);
         self.h_bias.e_add(&h_gradient);
     }
@@ -282,24 +247,16 @@ pub fn d_sigmoid(x: f32) -> f32 {
 }
 
 fn main() {
-    let mut network = NeuralNet::new(2, 2, 1);
+    let mut network = NeuralNet::new(2, 4, 1);
     // xor data set
-    let data = vec![vec![1.0, 1.0], vec![1.0, 0.0], vec![0.0, 1.0], vec![0.0, 0.0]];
-    let targets = vec![vec![0.0], vec![1.0], vec![1.0], vec![0.0]];
-    for _i in 0..50000 {
+    let data = vec![vec![1.0, 1.0], vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]];
+    let targets = vec![vec![0.0], vec![0.0], vec![1.0], vec![1.0]];
+    for _i in 0..100000 {
         let index = rand::thread_rng().gen_range(0..4);
-        network.train(data[index as usize].clone(), targets[index as usize].clone()); // fix to vector ! impl copy
+        network.train(data[index as usize].clone(), targets[index as usize].clone());
     }
     Matrix::from_vector_new(network.feed_foward(vec![1.0, 0.0])).print();
     Matrix::from_vector_new(network.feed_foward(vec![0.0, 1.0])).print();
     Matrix::from_vector_new(network.feed_foward(vec![1.0, 1.0])).print();
     Matrix::from_vector_new(network.feed_foward(vec![0.0, 0.0])).print();
 }
-
-
-
-
-
-
-
-
