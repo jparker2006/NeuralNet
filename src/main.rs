@@ -189,34 +189,34 @@ impl NeuralNet {
             ho_weight: Matrix::r_new(o, h),
             h_bias: Matrix::r_new(h, 1),
             o_bias: Matrix::r_new(o, 1),
-            learning_rate: 0.5
+            learning_rate: 0.25
         }
     }
 
     pub fn feed_foward(&mut self, input_data: Vec<f32>) -> Vec<f32> {
         let m_input_data = Matrix::from_vector_new(input_data);
-        // i -> h layer
+        let m_hidden = self.calc_ih(&m_input_data);
+        return self.calc_ho(&m_hidden).to_vector()
+    }
+
+    pub fn calc_ih(&mut self, m_input_data: &Matrix) -> Matrix {
         let mut m_hidden: Matrix = self.ih_weight.dot_product(&m_input_data);
         m_hidden.e_add(&self.h_bias);
         m_hidden.map_to_function(&sigmoid);
-        // h -> o layer
+        return m_hidden
+    }
+
+    pub fn calc_ho(&mut self, m_hidden: &Matrix) -> Matrix {
         let mut m_output: Matrix = self.ho_weight.dot_product(&m_hidden);
         m_output.e_add(&self.o_bias);
         m_output.map_to_function(&sigmoid);
-        return m_output.to_vector()
+        return m_output
     }
 
     pub fn train(&mut self, input_data: Vec<f32>, v_target_data: Vec<f32>) {
-        // feeding foward (refactor)
-        // i -> h layer
         let m_input_data = Matrix::from_vector_new(input_data);
-        let mut m_hidden: Matrix = self.ih_weight.dot_product(&m_input_data);
-        m_hidden.e_add(&self.h_bias);
-        m_hidden.map_to_function(&sigmoid);
-        // h -> o layer
-        let mut output_data: Matrix = self.ho_weight.dot_product(&m_hidden);
-        output_data.e_add(&self.o_bias);
-        output_data.map_to_function(&sigmoid);
+        let m_hidden: Matrix = self.calc_ih(&m_input_data);
+        let output_data: Matrix = self.calc_ho(&m_hidden);
         let mut m_target_data = Matrix::from_vector_new(v_target_data);
         let err_output = m_target_data.e_sub(&output_data);
         let mut o_gradient = Matrix::static_map_to_function(&output_data, &d_sigmoid);
@@ -246,17 +246,35 @@ pub fn d_sigmoid(x: f32) -> f32 {
     return x * (1.0 - x);
 }
 
+pub fn normalize_data(mut data: Vec<Vec<f32>>, max: f32) -> Vec<Vec<f32>> {
+    for i in 0..data.len() {
+        for j in 0..data[i].len() {
+            data[i][j] /= max;
+        }
+    }
+    return data
+}
+
+// #[allow(unused_variables)]
 fn main() {
-    let mut network = NeuralNet::new(2, 4, 1);
-    // xor data set
-    let data = vec![vec![1.0, 1.0], vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]];
+    use std::time::Instant;
+    let start = Instant::now();
+    let mut network = NeuralNet::new(2, 10, 1);
+    let data = normalize_data(vec![vec![1.0, 1.0], vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]], 1.0);
     let targets = vec![vec![0.0], vec![0.0], vec![1.0], vec![1.0]];
-    for _i in 0..100000 {
-        let index = rand::thread_rng().gen_range(0..4);
+    let epoch: i32 = 100000;
+    let rand_len: usize = data.len();
+    for i in 0..epoch {
+        let index = rand::thread_rng().gen_range(0..rand_len);
         network.train(data[index as usize].clone(), targets[index as usize].clone());
+        if i % 5000 == 0 {
+            println!("{}%", ((i as f32/epoch as f32) * 100.0));
+        }
     }
     Matrix::from_vector_new(network.feed_foward(vec![1.0, 0.0])).print();
     Matrix::from_vector_new(network.feed_foward(vec![0.0, 1.0])).print();
-    Matrix::from_vector_new(network.feed_foward(vec![1.0, 1.0])).print();
     Matrix::from_vector_new(network.feed_foward(vec![0.0, 0.0])).print();
+    Matrix::from_vector_new(network.feed_foward(vec![1.0, 1.0])).print();
+    let elapsed = start.elapsed();
+    println!("elapsed: {:.2?}", elapsed);
 }
