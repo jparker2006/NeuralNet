@@ -1,6 +1,14 @@
 extern crate rand;
 use rand::Rng;
+extern crate serde;
+use serde::{Serialize, Deserialize};
+use std::time::Duration;
+extern crate mysql;
+use mysql::*;
+#[allow(unused_imports)]
+use mysql::prelude::*;
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Matrix {
     pub rows: i32,
     pub cols: i32,
@@ -174,12 +182,14 @@ impl Matrix {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NeuralNet {
     ih_weight: Matrix,
     ho_weight: Matrix,
     h_bias: Matrix,
     o_bias: Matrix,
-    learning_rate: f32
+    learning_rate: f32,
+    clock_epoch: Duration
 }
 
 impl NeuralNet {
@@ -189,7 +199,8 @@ impl NeuralNet {
             ho_weight: Matrix::r_new(o, h),
             h_bias: Matrix::r_new(h, 1),
             o_bias: Matrix::r_new(o, 1),
-            learning_rate: 0.25
+            learning_rate: 10.0,
+            clock_epoch: Duration::from_secs_f32(0.0)
         }
     }
 
@@ -236,6 +247,18 @@ impl NeuralNet {
         self.ih_weight.e_add(&ih_dweights);
         self.h_bias.e_add(&h_gradient);
     }
+
+    pub fn calc_lr(&mut self, nepoch: i32, nindex: i32) {
+/*      let fpercent: f32 = nindex as f32 / nepoch as f32;
+        self.learning_rate = f32::powf(self.learning_rate, 1.24-fpercent);
+        let numerator: f32 = (0.5 * f32::powf(nepoch as f32, 2.8)) * 0.018;
+        let denomenator: f32 = f32::powf(nindex as f32 * 60.0, 1.9) + (2.0 * (f32::powf(nepoch as f32 * 5.0, 1.8)));
+        self.learning_rate = numerator / denomenator;
+        f(x) = 8(a)^3/x^2+4(a)^2
+        self.learning_rate = (f32::powf(8.0 * fpercent, 3.0)) / (f32::powf(self.learning_rate, 2.0)) + 4.0 * (fpercent * fpercent);*/
+        self.learning_rate = 10.0 + -1.0/(0.1*nepoch as f32) * nindex as f32;
+        println!("{}", self.learning_rate);
+    }
 }
 
 pub fn sigmoid(x: f32) -> f32 {
@@ -260,21 +283,40 @@ fn main() {
     use std::time::Instant;
     let start = Instant::now();
     let mut network = NeuralNet::new(2, 10, 1);
-    let data = normalize_data(vec![vec![1.0, 1.0], vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]], 1.0);
-    let targets = vec![vec![0.0], vec![0.0], vec![1.0], vec![1.0]];
+
+    println!("{}\n", serde_json::to_string(&network).unwrap());
+    let max: f32 = 1.0;
+    let data = normalize_data(vec![vec![0.0, 0.0], vec![0.0, 1.0], vec![1.0, 0.0], vec![1.0, 1.0]], 1.0);
+    let targets = normalize_data(vec![vec![0.0], vec![1.0], vec![1.0], vec![0.0]], max);
     let epoch: i32 = 100000;
     let rand_len: usize = data.len();
     for i in 0..epoch {
         let index = rand::thread_rng().gen_range(0..rand_len);
         network.train(data[index as usize].clone(), targets[index as usize].clone());
-        if i % 5000 == 0 {
-            println!("{}%", ((i as f32/epoch as f32) * 100.0));
+
+        if i % 5000 == 0 && i != 0 {
+            network.calc_lr(epoch, i);
+            println!("{:.2}%", i as f32 / epoch as f32 * 100.0);
         }
     }
-    Matrix::from_vector_new(network.feed_foward(vec![1.0, 0.0])).print();
-    Matrix::from_vector_new(network.feed_foward(vec![0.0, 1.0])).print();
-    Matrix::from_vector_new(network.feed_foward(vec![0.0, 0.0])).print();
-    Matrix::from_vector_new(network.feed_foward(vec![1.0, 1.0])).print();
+
+    println!("\n{}", network.feed_foward(vec![1.0, 0.0])[0] * max);
+    println!("{}", network.feed_foward(vec![0.0, 1.0])[0] * max);
+    println!("{}", network.feed_foward(vec![1.0, 1.0])[0] * max);
+    println!("{}", network.feed_foward(vec![0.0, 0.0])[0] * max);
+
     let elapsed = start.elapsed();
-    println!("elapsed: {:.2?}", elapsed);
+    network.clock_epoch = elapsed;
+
+    println!("elapsed: {:.2?}\n", elapsed);
+    println!("{}", serde_json::to_string(&network).unwrap());
 }
+
+/*
+CREATE Table Data (
+id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+data VARCHAR(1000) NOT NULL UNIQUE,
+time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+*/
+
