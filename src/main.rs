@@ -1,12 +1,12 @@
 extern crate rand;
-use rand::Rng;
 extern crate serde;
+extern crate image;
+
+use rand::Rng;
 use serde::{Serialize, Deserialize};
+use image::GenericImageView;
 use std::time::Duration;
-extern crate mysql;
-use mysql::*;
-#[allow(unused_imports)]
-use mysql::prelude::*;
+use std::time::Instant;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Matrix {
@@ -199,7 +199,7 @@ impl NeuralNet {
             ho_weight: Matrix::r_new(o, h),
             h_bias: Matrix::r_new(h, 1),
             o_bias: Matrix::r_new(o, 1),
-            learning_rate: 10.0,
+            learning_rate: 0.1,
             clock_epoch: Duration::from_secs_f32(0.0)
         }
     }
@@ -224,11 +224,11 @@ impl NeuralNet {
         return m_output
     }
 
-    pub fn train(&mut self, input_data: Vec<f32>, v_target_data: Vec<f32>) {
-        let m_input_data = Matrix::from_vector_new(input_data);
+    pub fn train(&mut self, input_data: Vec<Vec<f32>>) {
+        let m_input_data = Matrix::from_vector_new(input_data[0].clone());
         let m_hidden: Matrix = self.calc_ih(&m_input_data);
         let output_data: Matrix = self.calc_ho(&m_hidden);
-        let mut m_target_data = Matrix::from_vector_new(v_target_data);
+        let mut m_target_data = Matrix::from_vector_new(input_data[1].clone());
         let err_output = m_target_data.e_sub(&output_data);
         let mut o_gradient = Matrix::static_map_to_function(&output_data, &d_sigmoid);
         o_gradient.e_mult(err_output);
@@ -256,8 +256,8 @@ impl NeuralNet {
         self.learning_rate = numerator / denomenator;
         f(x) = 8(a)^3/x^2+4(a)^2
         self.learning_rate = (f32::powf(8.0 * fpercent, 3.0)) / (f32::powf(self.learning_rate, 2.0)) + 4.0 * (fpercent * fpercent);*/
-        self.learning_rate = 10.0 + -1.0/(0.1*nepoch as f32) * nindex as f32;
-        println!("{}", self.learning_rate);
+        self.learning_rate = 5.0 + -1.0/(0.2*nepoch as f32) * nindex as f32;
+//         println!("{}", self.learning_rate);
     }
 }
 
@@ -269,54 +269,98 @@ pub fn d_sigmoid(x: f32) -> f32 {
     return x * (1.0 - x);
 }
 
-pub fn normalize_data(mut data: Vec<Vec<f32>>, max: f32) -> Vec<Vec<f32>> {
-    for i in 0..data.len() {
-        for j in 0..data[i].len() {
-            data[i][j] /= max;
-        }
-    }
-    return data
-}
-
-// #[allow(unused_variables)]
 fn main() {
-    use std::time::Instant;
+    #[allow(non_snake_case)]
+    let e_CIRCLE = 0.0;
+    #[allow(non_snake_case)]
+    let e_SQUARE = 0.5;
+    #[allow(non_snake_case)]
+    let e_TRIANGLE = 1.0;
+    let mut data: Vec<Vec<Vec<f32>>> = vec![];
+    println!("starting");
     let start = Instant::now();
-    let mut network = NeuralNet::new(2, 10, 1);
+    for i in 1..100 { // circle data
+        let path: &str;
+        if i < 10 {
+            path = "/Users/jparker/NeuralNet/data/circle000";
+        }
+        else {
+            path = "/Users/jparker/NeuralNet/data/circle00";
+        }
+        let pic_number: &str = &i.to_string();
+        let extention = ".png";
+        let final_path = [path, pic_number, extention].concat();
+        let img = image::open(final_path).unwrap();
+        let mut pix_vec: Vec<f32> = vec![];
+        for pixel in img.pixels() {
+            let mut img_sum: f32 = 0.0;
+            img_sum += pixel.2[0] as f32 + pixel.2[1] as f32 + pixel.2[2] as f32;
+            pix_vec.push(img_sum / 765.0);
+        }
+        data.push(vec![pix_vec, vec![e_CIRCLE]]);
+    }
 
-    println!("{}\n", serde_json::to_string(&network).unwrap());
-    let max: f32 = 1.0;
-    let data = normalize_data(vec![vec![0.0, 0.0], vec![0.0, 1.0], vec![1.0, 0.0], vec![1.0, 1.0]], 1.0);
-    let targets = normalize_data(vec![vec![0.0], vec![1.0], vec![1.0], vec![0.0]], max);
-    let epoch: i32 = 100000;
-    let rand_len: usize = data.len();
+    for i in 1..100 { // square data
+        let path: &str;
+        if i < 10 {
+            path = "/Users/jparker/NeuralNet/data/square000";
+        }
+        else {
+            path = "/Users/jparker/NeuralNet/data/square00";
+        }
+        let pic_number: &str = &i.to_string();
+        let extention = ".png";
+        let final_path = [path, pic_number, extention].concat();
+        let img = image::open(final_path).unwrap();
+        let mut pix_vec: Vec<f32> = vec![];
+        for pixel in img.pixels() {
+            let mut img_sum: f32 = 0.0;
+            img_sum += pixel.2[0] as f32 + pixel.2[1] as f32 + pixel.2[2] as f32;
+            pix_vec.push(img_sum / 765.0);
+        }
+        data.push(vec![pix_vec, vec![e_SQUARE]]);
+    }
+
+    for i in 1..100 { // triangle data
+        let path: &str;
+        if i < 10 {
+            path = "/Users/jparker/NeuralNet/data/triangle000";
+        }
+        else {
+            path = "/Users/jparker/NeuralNet/data/triangle00";
+        }
+        let pic_number: &str = &i.to_string();
+        let extention = ".png";
+        let final_path = [path, pic_number, extention].concat();
+        let img = image::open(final_path).unwrap();
+        let mut pix_vec: Vec<f32> = vec![];
+        for pixel in img.pixels() {
+            let mut img_sum: f32 = 0.0;
+            img_sum += pixel.2[0] as f32 + pixel.2[1] as f32 + pixel.2[2] as f32;
+            pix_vec.push(img_sum / 765.0);
+        }
+        data.push(vec![pix_vec, vec![e_TRIANGLE]]);
+    }
+
+    let mut network = NeuralNet::new(4096, 256, 1);
+
+    let epoch: i32 = 5000;
+    let rand_len: usize = 296; // change
     for i in 0..epoch {
         let index = rand::thread_rng().gen_range(0..rand_len);
-        network.train(data[index as usize].clone(), targets[index as usize].clone());
+        network.train(data[index as usize].clone());
 
-        if i % 5000 == 0 && i != 0 {
-            network.calc_lr(epoch, i);
+        if i % 10 == 0 {
             println!("{:.2}%", i as f32 / epoch as f32 * 100.0);
         }
     }
-
-    println!("\n{}", network.feed_foward(vec![1.0, 0.0])[0] * max);
-    println!("{}", network.feed_foward(vec![0.0, 1.0])[0] * max);
-    println!("{}", network.feed_foward(vec![1.0, 1.0])[0] * max);
-    println!("{}", network.feed_foward(vec![0.0, 0.0])[0] * max);
 
     let elapsed = start.elapsed();
     network.clock_epoch = elapsed;
 
     println!("elapsed: {:.2?}\n", elapsed);
-    println!("{}", serde_json::to_string(&network).unwrap());
+    println!("\n{}", network.feed_foward(data[0][0].clone())[0]);
+    println!("\n{}", network.feed_foward(data[120][0].clone())[0]);
+    println!("\n{}", network.feed_foward(data[260][0].clone())[0]);
 }
-
-/*
-CREATE Table Data (
-id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-data VARCHAR(1000) NOT NULL UNIQUE,
-time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-*/
 
