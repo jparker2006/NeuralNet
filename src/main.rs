@@ -248,17 +248,10 @@ impl NeuralNet {
         self.h_bias.e_add(&h_gradient);
     }
 
-//     pub fn calc_lr(&mut self, nepoch: i32, nindex: i32) {
-// /*      let fpercent: f32 = nindex as f32 / nepoch as f32;
-//         self.learning_rate = f32::powf(self.learning_rate, 1.24-fpercent);
-//         let numerator: f32 = (0.5 * f32::powf(nepoch as f32, 2.8)) * 0.018;
-//         let denomenator: f32 = f32::powf(nindex as f32 * 60.0, 1.9) + (2.0 * (f32::powf(nepoch as f32 * 5.0, 1.8)));
-//         self.learning_rate = numerator / denomenator;
-//         f(x) = 8(a)^3/x^2+4(a)^2
-//         self.learning_rate = (f32::powf(8.0 * fpercent, 3.0)) / (f32::powf(self.learning_rate, 2.0)) + 4.0 * (fpercent * fpercent);*/
-//         self.learning_rate = 5.0 + -1.0/(0.2*nepoch as f32) * nindex as f32;
-// //         println!("{}", self.learning_rate);
-//     }
+    pub fn edit_lr(&mut self, nepoch: f32) {
+        self.learning_rate = -1.0 * f32::powf(self.learning_rate, 0.69) + (0.2 * nepoch);
+        println!("{:?}", self.learning_rate);
+    }
 }
 
 pub fn sigmoid(x: f32) -> f32 {
